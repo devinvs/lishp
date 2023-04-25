@@ -2,6 +2,8 @@ use lishp::parser::{SExpression, parse_file};
 use lishp::state::State;
 use lishp::parser::InputHelper;
 
+use std::env::current_dir;
+
 fn main() {
     let mut rl = rustyline::Editor::new().unwrap();
     let h = InputHelper::default();
@@ -48,7 +50,13 @@ fn main() {
     rl.save_history("/home/devin/.fsh_history").unwrap();
 }
 
+fn get_cwd() -> String {
+    let dir = current_dir().unwrap().to_str().unwrap().to_string();
+
+    dir.replace("/home/devin", "~")
+}
+
 fn get_prompt() -> String {
-    format!("\x1b[35;5;1m❯\x1b[0m ")
+    format!("{}\n\x1b[35;5;1m❯\x1b[0m ", get_cwd())
 }
 

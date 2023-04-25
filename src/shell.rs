@@ -356,13 +356,22 @@ impl SExpression {
                 }
 
                 // If func is in user defined functions then run the subs
-                if let Some((vars, tree)) = state.funcs.get(func.ident()) {
-                    let tree = vars.iter()
-                        .zip(args.iter())
-                        .fold(tree.clone(), |t, (var, sub)| {
-                            t.replace(var, sub.clone())
-                        });
-                    return tree.eval(state, false);
+                if state.funcs.get(func.ident()).is_some() {
+                    let mut fargs = vec![];
+                    for arg in args.into_iter() {
+                        fargs.push(arg.eval(state, false)?);
+                    }
+
+                    if let Some((vars, tree)) = state.funcs.get(func.ident()) {
+                        let tree = vars.iter()
+                            .zip(fargs.iter())
+                            .fold(tree.clone(), |t, (var, sub)| {
+                                t.replace(var, sub.clone())
+                            });
+                        return tree.eval(state, false);
+                    } else {
+                        unreachable!()
+                    }
                 }
 
                 let (fd_read, fd_write) = pipe().unwrap();
