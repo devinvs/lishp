@@ -299,6 +299,10 @@ mod builtin {
 
         Ok(SExpression::Atom("".to_string()))
     }
+
+    pub fn exit(_: Box<dyn Iterator<Item = SExpression>>, _: &mut State) -> Result<SExpression, String> {
+        std::process::exit(0)
+    }
 }
 
 lazy_static! {
@@ -331,6 +335,7 @@ lazy_static! {
         m.insert("def", builtin::def);
 
         m.insert("cd", builtin::cd);
+        m.insert("exit", builtin::exit);
         m
     };
 }
