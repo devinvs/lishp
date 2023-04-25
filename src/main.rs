@@ -49,5 +49,6 @@ fn main() {
 }
 
 fn get_prompt() -> String {
-    format!("❯ ")
+    format!("\x1b[35;5;1m❯\x1b[0m ")
 }
+
