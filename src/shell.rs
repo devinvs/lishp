@@ -402,7 +402,7 @@ impl SExpression {
                         if !base {
                             while let Ok(n) = read(fd_read, &mut buf) {
                                 if n == 0 { break; } // EOF
-                                out.push_str(std::str::from_utf8(&buf[0..n]).unwrap());
+                                out.push_str(&String::from_utf8_lossy(&buf[0..n]));
                             }
 
                             waitpid(child, None).unwrap();

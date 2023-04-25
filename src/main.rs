@@ -4,8 +4,17 @@ use lishp::parser::InputHelper;
 
 use std::env::current_dir;
 
+use rustyline::config::Builder;
+use rustyline::config::CompletionType;
+
 fn main() {
-    let mut rl = rustyline::Editor::new().unwrap();
+    let config = Builder::default()
+        .auto_add_history(true)
+        .completion_type(CompletionType::List)
+        .tab_stop(4)
+        .build();
+
+    let mut rl = rustyline::Editor::with_config(config).unwrap();
     let h = InputHelper::default();
 
     rl.set_helper(Some(h));
@@ -23,9 +32,6 @@ fn main() {
             Ok(line) => {
                 // If line is empty ignore
                 if line.is_empty() { continue; }
-
-                // Add to history
-                rl.add_history_entry(&line).unwrap();
 
                 // Parse and run
                 match SExpression::parse(&line) {
@@ -47,7 +53,7 @@ fn main() {
         }
     }
 
-    rl.save_history("/home/devin/.fsh_history").unwrap();
+    rl.save_history("/home/devin/.lishp_history").unwrap();
 }
 
 fn get_cwd() -> String {

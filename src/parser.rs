@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use rustyline::validate::{ValidationContext, ValidationResult};
 use rustyline::{Completer, Helper, Highlighter, Hinter, Validator};
+use rustyline::completion::FilenameCompleter;
 
 use std::fs::File;
 use std::io::Read;
@@ -219,5 +220,7 @@ impl rustyline::validate::Validator for InputValidator {
 #[derive(Completer, Helper, Highlighter, Hinter, Validator, Default)]
 pub struct InputHelper {
     #[rustyline(Validator)]
-    validator: InputValidator
+    validator: InputValidator,
+    #[rustyline(Completer)]
+    completor: FilenameCompleter
 }
