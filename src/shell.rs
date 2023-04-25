@@ -23,6 +23,7 @@ type Func = fn(Box<dyn Iterator<Item = SExpression>>, &mut State) -> Result<SExp
 
 mod builtin {
     use std::cmp::Ordering;
+    use std::env::set_current_dir;
     use crate::parser::SExpression;
     use crate::state::State;
 
@@ -38,7 +39,7 @@ mod builtin {
         let mut accum = init;
 
         for arg in args {
-            let x = to_f64(&arg.eval(s)?)?;
+            let x = to_f64(&arg.eval(s, false)?)?;
             accum = f(accum, x);
         }
 
@@ -47,8 +48,8 @@ mod builtin {
 
     fn bin_num(x: SExpression, y: SExpression, f: BinNum, s: &mut State) -> Result<SExpression, String> {
         Ok(SExpression::Atom(f(
-            to_f64(&x.eval(s)?)?,
-            to_f64(&y.eval(s)?)?).to_string()))
+            to_f64(&x.eval(s, false)?)?,
+            to_f64(&y.eval(s, false)?)?).to_string()))
     }
 
     pub fn add(args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
@@ -93,13 +94,13 @@ mod builtin {
 
     fn bin_cmp(x: SExpression, y: SExpression, f: BinCmp, s: &mut State) -> Result<SExpression, String> {
         Ok(SExpression::Atom(f(
-                to_f64(&x.eval(s)?)?,
-                to_f64(&y.eval(s)?)?).to_string()))
+                to_f64(&x.eval(s, false)?)?,
+                to_f64(&y.eval(s, false)?)?).to_string()))
     }
 
     pub fn not(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let Some(e) = args.next() {
-            match e.eval(s)? {
+            match e.eval(s, false)? {
                 SExpression::Atom(s) => {
                     match s.as_str() {
                         "true" => Ok(SExpression::Atom("false".to_string())),
@@ -118,7 +119,7 @@ mod builtin {
         let mut accum = false;
 
         for arg in args {
-            let x = arg.eval(s)?;
+            let x = arg.eval(s, false)?;
             accum = accum || x.ident() == "true";
         }
 
@@ -129,7 +130,7 @@ mod builtin {
         let mut accum = true;
 
         for arg in args {
-            let x = arg.eval(s)?;
+            let x = arg.eval(s, false)?;
             accum = accum && x.ident() == "true";
         }
 
@@ -170,8 +171,8 @@ mod builtin {
 
     pub fn eq(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let (Some(x), Some(y)) = (args.next(), args.next()) {
-            let x = x.eval(s);
-            let y = y.eval(s);
+            let x = x.eval(s, false);
+            let y = y.eval(s, false);
 
             Ok(SExpression::Atom((x==y).to_string()))
         } else {
@@ -181,10 +182,10 @@ mod builtin {
 
     pub fn ifs(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let (Some(cond), Some(t), Some(f)) = (args.next(), args.next(), args.next()) {
-            if cond.eval(s)?.ident() == "true" {
-                t.eval(s)
+            if cond.eval(s, false)?.ident() == "true" {
+                t.eval(s, false)
             } else {
-                f.eval(s)
+                f.eval(s, false)
             }
         } else {
             Err("if requires three arguments".to_string())
@@ -193,7 +194,7 @@ mod builtin {
 
     pub fn first(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let Some(e) = args.next() {
-            match e.eval(s)? {
+            match e.eval(s, false)? {
                 SExpression::List(es) => {
                     if let Some(e) = es.into_iter().next() {
                         Ok(e)
@@ -217,7 +218,7 @@ mod builtin {
 
     pub fn rest(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let Some(e) = args.next() {
-            match e.eval(s)? {
+            match e.eval(s, false)? {
                 SExpression::List(es) => {
                     let mut i = es.into_iter();
                     i.next();
@@ -240,7 +241,7 @@ mod builtin {
         let mut l = Vec::new();
 
         for arg in args {
-            l.push(arg.eval(s)?);
+            l.push(arg.eval(s, false)?);
         }
 
         Ok(SExpression::List(l))
@@ -276,8 +277,8 @@ mod builtin {
 
     pub fn cons(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let (Some(x), Some(xs)) = (args.next(), args.next()) {
-            if let SExpression::List(mut xs) = xs.eval(s)? {
-                xs.insert(0, x.eval(s)?);
+            if let SExpression::List(mut xs) = xs.eval(s, false)? {
+                xs.insert(0, x.eval(s, false)?);
                 Ok(SExpression::List(xs))
             } else {
                 Err("cons second argument must be a list".to_string())
@@ -285,6 +286,18 @@ mod builtin {
         } else {
             Err("cons requires two arguments".to_string())
         }
+    }
+
+    pub fn cd(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
+        if let Some(e) = args.next() {
+            set_current_dir(e.eval(s, false)?.ident())
+                .map_err(|_| "Failed to change directory".to_string())?;
+        } else {
+            set_current_dir("/home/devin")
+                .map_err(|_| "Failed to change directory".to_string())?;
+        }
+
+        Ok(SExpression::Atom("".to_string()))
     }
 }
 
@@ -317,12 +330,13 @@ lazy_static! {
         m.insert("defun", builtin::defun);
         m.insert("def", builtin::def);
 
+        m.insert("cd", builtin::cd);
         m
     };
 }
 
 impl SExpression {
-    pub fn eval(self, state: &mut State) -> Result<SExpression, String> {
+    pub fn eval(self, state: &mut State, base: bool) -> Result<SExpression, String> {
         match self {
             Self::Call(es) => {
                 let mut i = es.into_iter();
@@ -343,9 +357,8 @@ impl SExpression {
                         .fold(tree.clone(), |t, (var, sub)| {
                             t.replace(var, sub.clone())
                         });
-                    
-                    return tree.eval(state);
-                } 
+                    return tree.eval(state, false);
+                }
 
                 let (fd_read, fd_write) = pipe().unwrap();
 
@@ -372,21 +385,29 @@ impl SExpression {
 
                         close(fd_write).unwrap();
 
-                        while let Ok(n) = read(fd_read, &mut buf) {
-                            if n == 0 { break; } // EOF
-                            out.push_str(std::str::from_utf8(&buf[0..n]).unwrap());
+                        if !base {
+                            while let Ok(n) = read(fd_read, &mut buf) {
+                                if n == 0 { break; } // EOF
+                                out.push_str(std::str::from_utf8(&buf[0..n]).unwrap());
+                            }
+
+                            waitpid(child, None).unwrap();
+
+                            let lines = out.lines()
+                                .map(|s| SExpression::Atom(s.to_string()))
+                                .collect::<Vec<_>>();
+
+                            Ok(SExpression::List(lines))
+                        } else {
+                            waitpid(child, None).unwrap();
+                            Ok(SExpression::Atom("".into()))
                         }
 
-                        waitpid(child, None).unwrap();
-
-                        let lines = out.lines()
-                            .map(|s| SExpression::Atom(s.to_string()))
-                            .collect::<Vec<_>>();
-
-                        Ok(SExpression::List(lines))
                     }
                     Ok(ForkResult::Child) => {
-                        dup2(fd_write, 1).unwrap();
+                        if !base {
+                            dup2(fd_write, 1).unwrap();
+                        }
                         close(fd_write).unwrap();
                         close(fd_read).unwrap();
 

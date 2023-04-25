@@ -13,11 +13,11 @@ fn main() {
 
     // Load .lishprc into state
     for expr in parse_file("/home/devin/.lishprc") {
-        expr.eval(&mut state).unwrap();
+        expr.eval(&mut state, false).unwrap();
     }
 
     loop {
-        match rl.readline(">> ") {
+        match rl.readline(&get_prompt()) {
             Ok(line) => {
                 // If line is empty ignore
                 if line.is_empty() { continue; }
@@ -28,8 +28,13 @@ fn main() {
                 // Parse and run
                 match SExpression::parse(&line) {
                     Ok(expr) => {
-                        match expr.eval(&mut state) {
-                            Ok(e) => println!("{e}"),
+                        match expr.eval(&mut state, true) {
+                            Ok(e) => {
+                                match e {
+                                    SExpression::Atom(s) if s=="" => println!(""),
+                                    _ => println!("{e}")
+                                }
+                            },
                             Err(e) => eprintln!("Error: {e}")
                         }
                     }
@@ -41,4 +46,8 @@ fn main() {
     }
 
     rl.save_history("/home/devin/.fsh_history").unwrap();
+}
+
+fn get_prompt() -> String {
+    format!("❯ ")
 }

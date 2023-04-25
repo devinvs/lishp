@@ -183,7 +183,12 @@ impl Display for SExpression {
 }
 
 pub fn parse_file(s: &str) -> Vec<SExpression> {
-    let meta = std::fs::metadata(s).unwrap();
+    let meta = std::fs::metadata(s);
+    if meta.is_err() {
+        return vec![];
+    }
+
+    let meta = meta.unwrap();
     let mut buf = String::with_capacity(meta.len() as usize);
 
     let mut f = File::open(s).unwrap();
