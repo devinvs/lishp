@@ -195,7 +195,11 @@ pub fn parse_file(s: &str) -> Vec<SExpression> {
     let mut f = File::open(s).unwrap();
     f.read_to_string(&mut buf).unwrap();
 
-    let mut tokens = lex(buf.chars()).into_iter().peekable();
+    parse_str(&buf)
+}
+
+pub fn parse_str(s: &str) -> Vec<SExpression> {
+    let mut tokens = lex(s.chars()).into_iter().peekable();
     let mut exprs = vec![];
 
     while let Ok(e) = SExpression::parse_toks(&mut tokens) {

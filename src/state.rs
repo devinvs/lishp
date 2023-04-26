@@ -12,6 +12,9 @@ pub struct State {
     // Parsed version of system path
     pub path: Vec<String>,
 
+    // lower level aliases for preprocessing the input text
+    pub aliases: HashMap<String, String>,
+
     // User definitions, literally just use as tree substitutions
     pub defs: HashMap<String, SExpression>,
 
@@ -29,6 +32,7 @@ impl State {
         Self {
             id: 0,
             path,
+            aliases: HashMap::new(),
             defs: HashMap::new(),
             funcs: HashMap::new(),
         }
@@ -47,5 +51,15 @@ impl State {
         }
 
         None
+    }
+
+    pub fn preprocess(&self, s: &str) -> String {
+        let mut s = s.to_string();
+
+        for (from, to) in self.aliases.iter() {
+            s = s.replace(from, to);
+        }
+
+        s
     }
 }

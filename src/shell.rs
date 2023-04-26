@@ -14,7 +14,7 @@ use nix::unistd::{
     close,
     dup2
 };
-use nix::sys::wait::waitpid;
+use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::libc as libc;
 
 use lazy_static::lazy_static;
@@ -275,6 +275,19 @@ mod builtin {
         }
     }
 
+    pub fn alias(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
+        if let Some(SExpression::Atom(from)) = args.next() {
+            let to = args.map(|e| e.ident().to_string()).collect::<Vec<_>>();
+            let to = to.join(" ");
+
+            s.aliases.insert(from.clone(), to.clone());
+
+            Ok(SExpression::Atom(format!("aliased {from} to {to}")))
+        } else {
+            Err("alias requires two arguments".to_string())
+        }
+    }
+
     pub fn cons(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let (Some(x), Some(xs)) = (args.next(), args.next()) {
             if let SExpression::List(mut xs) = xs.eval(s, false)? {
@@ -333,6 +346,7 @@ lazy_static! {
 
         m.insert("defun", builtin::defun);
         m.insert("def", builtin::def);
+        m.insert("alias", builtin::alias);
 
         m.insert("cd", builtin::cd);
         m.insert("exit", builtin::exit);
@@ -383,13 +397,16 @@ impl SExpression {
                 }
 
                 let bin = bin.unwrap();
+                
+                let mut fargs = vec![];
+                fargs.push(CString::new(func.ident()).unwrap());
 
-                let mut args = args.iter()
-                    .map(|e| e.ident())
-                    .map(|s| CString::new(s).unwrap())
-                    .collect::<Vec<_>>();
-
-                args.insert(0, CString::new(func.ident()).unwrap());
+                for arg in args {
+                    fargs.push(CString::new(
+                        arg.eval(state, false)?.ident()
+                    ).unwrap())
+                }
+                let args = fargs;
 
                 // Fork, Exec
                 match unsafe{fork()} {
@@ -405,7 +422,13 @@ impl SExpression {
                                 out.push_str(&String::from_utf8_lossy(&buf[0..n]));
                             }
 
-                            waitpid(child, None).unwrap();
+                            loop {
+                                let status = waitpid(child, Some(WaitPidFlag::WUNTRACED)).unwrap();
+                                match status {
+                                    WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => break,
+                                    _ => continue
+                                }
+                            }
 
                             let lines = out.lines()
                                 .map(|s| SExpression::Atom(s.to_string()))
@@ -413,7 +436,14 @@ impl SExpression {
 
                             Ok(SExpression::List(lines))
                         } else {
-                            waitpid(child, None).unwrap();
+                            loop {
+                                if let Ok(status) = waitpid(child, Some(WaitPidFlag::WUNTRACED)) {
+                                    match status {
+                                        WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => break,
+                                        _ => continue
+                                    }
+                                }
+                            }
                             Ok(SExpression::Atom("".into()))
                         }
 
@@ -445,7 +475,8 @@ impl SExpression {
     pub fn ident(&self) -> &str {
         match self {
             SExpression::Atom(s) => s,
-            _ => unimplemented!()
+            SExpression::List(l) => l[0].ident(),
+            _ => panic!()
         }
     }
 

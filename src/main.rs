@@ -1,4 +1,4 @@
-use lishp::parser::{SExpression, parse_file};
+use lishp::parser::{SExpression, parse_file, parse_str};
 use lishp::state::State;
 use lishp::parser::InputHelper;
 
@@ -22,9 +22,41 @@ fn main() {
 
     let mut state = State::load();
 
+    // Load prelude into state
+    for expr in parse_str(include_str!("prelude.lisp")) {
+        expr.eval(&mut state, false).unwrap();
+    }
+
     // Load .lishprc into state
     for expr in parse_file("/home/devin/.lishprc") {
         expr.eval(&mut state, false).unwrap();
+    }
+
+    let mut args = std::env::args();
+    args.next();
+
+    if let Some(s) = args.next() {
+        if s == "-c" {
+            let cmd = args.collect::<Vec<_>>();
+            let cmd = cmd.join(" ");
+
+            match SExpression::parse(&cmd) {
+                Ok(expr) => {
+                    match expr.eval(&mut state, true) {
+                        Ok(e) => {
+                            match e {
+                                SExpression::Atom(s) if s=="" => println!(""),
+                                _ => println!("{e}")
+                            }
+                        },
+                        Err(e) => eprintln!("Error: {e}")
+                    }
+                }
+                Err(e) => eprintln!("{e}")
+            }
+
+            return;
+        }
     }
 
     loop {
@@ -32,6 +64,8 @@ fn main() {
             Ok(line) => {
                 // If line is empty ignore
                 if line.is_empty() { continue; }
+
+                let line = state.preprocess(&line);
 
                 // Parse and run
                 match SExpression::parse(&line) {
