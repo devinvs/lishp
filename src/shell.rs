@@ -304,10 +304,10 @@ mod builtin {
     pub fn cd(mut args: Box<dyn Iterator<Item = SExpression>>, s: &mut State) -> Result<SExpression, String> {
         if let Some(e) = args.next() {
             set_current_dir(e.eval(s, false)?.ident())
-                .map_err(|_| "Failed to change directory".to_string())?;
+                .map_err(|e| format!("Failed to change directory: {e}"))?;
         } else {
             set_current_dir("/home/devin")
-                .map_err(|_| "Failed to change directory".to_string())?;
+                .map_err(|e| format!("Failed to change directory: {e}"))?;
         }
 
         Ok(SExpression::Atom("".to_string()))

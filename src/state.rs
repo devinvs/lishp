@@ -2,6 +2,7 @@ use std::env::var;
 use std::fs::read_dir;
 use std::ffi::CString;
 use std::collections::HashMap;
+use std::path::Path;
 
 use crate::parser::SExpression;
 
@@ -39,6 +40,14 @@ impl State {
     }
 
     pub fn search_path(&self, s: &str) -> Option<CString> {
+        // first try to find the file as absolute path
+        if let Ok(p) = std::fs::canonicalize(s) {
+            let p = Path::new(&p);
+            if p.exists() {
+                return Some(CString::new(p.to_str().unwrap()).unwrap());
+            }
+        }
+
         for dir in self.path.iter() {
             for entry in read_dir(dir).ok()? {
                 if let Ok(entry) = entry {

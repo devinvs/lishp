@@ -42,6 +42,7 @@ fn main() {
 
             match SExpression::parse(&cmd) {
                 Ok(expr) => {
+                    eprintln!("{expr}");
                     match expr.eval(&mut state, true) {
                         Ok(e) => {
                             match e {

@@ -28,6 +28,9 @@ fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
 
     while let Some(c) = s.next() {
         match c {
+            '\\' => {
+                stack.push(s.next().unwrap())
+            }
             a if a.is_whitespace() && !in_quote => {
                 push(&mut stack, &mut tokens, in_quote);
             }
