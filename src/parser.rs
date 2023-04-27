@@ -1,7 +1,8 @@
 use std::fmt::Display;
 use rustyline::validate::{ValidationContext, ValidationResult};
 use rustyline::{Completer, Helper, Highlighter, Hinter, Validator};
-use rustyline::completion::FilenameCompleter;
+
+use crate::completer::FilenameCompleter;
 
 use std::fs::File;
 use std::io::Read;
@@ -28,17 +29,17 @@ fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
 
     while let Some(c) = s.next() {
         match c {
-            '\\' => {
-                stack.push(s.next().unwrap())
-            }
-            a if a.is_whitespace() && !in_quote => {
-                push(&mut stack, &mut tokens, in_quote);
-            }
             '\"' => {
                 push(&mut stack, &mut tokens, in_quote);
                 in_quote = !in_quote;
             }
             c if in_quote => stack.push(c),
+            '\\' => {
+                stack.push(s.next().unwrap())
+            }
+            c if c.is_whitespace() => {
+                push(&mut stack, &mut tokens, in_quote);
+            }
             '\'' => {
                 push(&mut stack, &mut tokens, in_quote);
                 tokens.push(Token::Quote);
@@ -229,5 +230,5 @@ pub struct InputHelper {
     #[rustyline(Validator)]
     validator: InputValidator,
     #[rustyline(Completer)]
-    completor: FilenameCompleter
+    completer: FilenameCompleter
 }
