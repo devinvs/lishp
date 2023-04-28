@@ -9,3 +9,4 @@ edition = "2021"
 rustyline = { version="11", features=["derive"] }
 nix = { version="0.26", features=["process"] }
 lazy_static = "1.4"
+ctrlc = "3"

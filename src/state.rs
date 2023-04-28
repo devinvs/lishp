@@ -4,7 +4,7 @@ use std::ffi::CString;
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::parser::SExpression;
+use crate::SExpression;
 
 pub struct State {
     // last unique id of a given variable
@@ -37,6 +37,11 @@ impl State {
             defs: HashMap::new(),
             funcs: HashMap::new(),
         }
+    }
+
+    pub fn eval(&mut self, cmd: &str) -> Result<SExpression, String> {
+        let expr = SExpression::parse(cmd)?;
+        expr.eval(self, true)
     }
 
     pub fn search_path(&self, s: &str) -> Option<CString> {

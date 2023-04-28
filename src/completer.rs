@@ -4,6 +4,30 @@ use rustyline::{Result, Context};
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs;
 use std::path::{self, Path};
+use crate::SExpression;
+
+#[derive(Default)]
+struct InputValidator;
+
+use rustyline::validate::{ValidationContext, ValidationResult};
+use rustyline::{Completer, Helper, Highlighter, Hinter, Validator};
+
+impl rustyline::validate::Validator for InputValidator {
+    fn validate(&self, ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
+        match SExpression::parse(ctx.input()) {
+            Ok(_) => Ok(ValidationResult::Valid(None)),
+            Err(_) => Ok(ValidationResult::Incomplete)
+        }
+    }
+}
+
+#[derive(Completer, Helper, Highlighter, Hinter, Validator, Default)]
+pub struct InputHelper {
+    #[rustyline(Validator)]
+    validator: InputValidator,
+    #[rustyline(Completer)]
+    completer: FilenameCompleter
+}
 
 pub struct FilenameCompleter {
     break_chars: fn(char) -> bool,

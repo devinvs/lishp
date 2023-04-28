@@ -1,15 +1,41 @@
-use lishp::parser::{SExpression, parse_file, parse_str};
-use lishp::state::State;
-use lishp::parser::InputHelper;
-
-use std::env::current_dir;
+use lishp::Interpreter;
+use lishp::SExpression;
+use lishp::completer::InputHelper;
 
 use rustyline::config::Builder;
 use rustyline::config::CompletionType;
 
 fn main() {
+    let mut it = Interpreter::load();
+
+    // If -c flag is used run the command from args and then exit, else start interpreter
+    let mut args = std::env::args();
+    match args.nth(1).as_ref().map(|s| s.as_str()) {
+        Some("-c") => {
+            let cmd = args.collect::<Vec<_>>();
+            let cmd = cmd.join(" ");
+            run_command(&mut it, &cmd);
+        }
+        _ => run_interactive(it)
+    }
+}
+
+fn run_command(it: &mut Interpreter, cmd: &str) {
+    match it.eval(cmd) {
+        Ok(e) => match e {
+            SExpression::Atom(s) if s=="" => println!(""),
+            _ => println!("{e}")
+        }
+        Err(e) => eprintln!("Error: {e}")
+    }
+}
+
+fn run_interactive(mut it: Interpreter) {
+    // Ignore ctrl-c
+    ctrlc::set_handler(move || {}).unwrap();
+
+    // Setup readline completion and history
     let config = Builder::default()
-        .auto_add_history(true)
         .completion_type(CompletionType::List)
         .tab_stop(4)
         .build();
@@ -20,69 +46,13 @@ fn main() {
     rl.set_helper(Some(h));
     rl.load_history("/home/devin/.lishp_history").ok();    // load history if it exists
 
-    let mut state = State::load();
-
-    // Load prelude into state
-    for expr in parse_str(include_str!("prelude.lisp")) {
-        expr.eval(&mut state, false).unwrap();
-    }
-
-    // Load .lishprc into state
-    for expr in parse_file("/home/devin/.lishprc") {
-        expr.eval(&mut state, false).unwrap();
-    }
-
-    let mut args = std::env::args();
-    args.next();
-
-    if let Some(s) = args.next() {
-        if s == "-c" {
-            let cmd = args.collect::<Vec<_>>();
-            let cmd = cmd.join(" ");
-
-            match SExpression::parse(&cmd) {
-                Ok(expr) => {
-                    eprintln!("{expr}");
-                    match expr.eval(&mut state, true) {
-                        Ok(e) => {
-                            match e {
-                                SExpression::Atom(s) if s=="" => println!(""),
-                                _ => println!("{e}")
-                            }
-                        },
-                        Err(e) => eprintln!("Error: {e}")
-                    }
-                }
-                Err(e) => eprintln!("{e}")
-            }
-
-            return;
-        }
-    }
-
     loop {
-        match rl.readline(&get_prompt()) {
+        match rl.readline(&get_prompt(&mut it)) {
             Ok(line) => {
                 // If line is empty ignore
                 if line.is_empty() { continue; }
-
-                let line = state.preprocess(&line);
-
-                // Parse and run
-                match SExpression::parse(&line) {
-                    Ok(expr) => {
-                        match expr.eval(&mut state, true) {
-                            Ok(e) => {
-                                match e {
-                                    SExpression::Atom(s) if s=="" => println!(""),
-                                    _ => println!("{e}")
-                                }
-                            },
-                            Err(e) => eprintln!("Error: {e}")
-                        }
-                    }
-                    Err(e) => eprintln!("{e}")
-                }
+                rl.add_history_entry(&line).unwrap();
+                run_command(&mut it, &line);
             }
             Err(_) => break
         }
@@ -91,13 +61,13 @@ fn main() {
     rl.save_history("/home/devin/.lishp_history").unwrap();
 }
 
-fn get_cwd() -> String {
-    let dir = current_dir().unwrap().to_str().unwrap().to_string();
+fn get_prompt(it: &mut Interpreter) -> String {
+    if let Some(e) = it.defs.get("lishp_prompt") {
+        if let Ok(s) = it.eval_expr(e.clone(), false) {
+            return s.ident().to_string();
+        }
+    }
 
-    dir.replace("/home/devin", "~")
-}
-
-fn get_prompt() -> String {
-    format!("{}\n\x1b[35;5;1m❯\x1b[0m ", get_cwd())
+    "> ".to_string()
 }
 
