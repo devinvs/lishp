@@ -284,16 +284,19 @@ pub fn builtin_cons(mut args: List<SExpression>, s: &mut Interpreter) -> Result<
         let xs = s.eval_expr(xs, false)?;
 
         match (x, xs) {
+            (SExpression::Atom(c), SExpression::List(xs)) if c.chars().count() == 1 && xs.len() == 0 => {
+                Ok(SExpression::Atom(c))
+            }
+            (SExpression::Atom(mut c), SExpression::Atom(s)) if c.chars().count() == 1 => {
+                c.push_str(&s);
+                Ok(SExpression::Atom(c))
+            }
             (x, SExpression::List(mut xs)) => {
                 xs.push_front(s.eval_expr(x, false)?);
                 Ok(SExpression::List(xs))
             }
-            (SExpression::Atom(mut c), SExpression::Atom(s)) if c.len() == 1 => {
-                c.push_str(&s);
-                Ok(SExpression::Atom(s))
-            }
             (x, xs) => {
-                eprintln!("{x} and {xs}");
+                eprintln!("{x} vs {xs}");
                 Err("cons second argument must be list-like".to_string())
             }
         }

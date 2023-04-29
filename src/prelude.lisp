@@ -2,6 +2,7 @@
 (defun empty? (a)
   (or (= a '()) (= a "")))
 
+
 ; Accessors for extra elements in a list
 (defun second (x)
   (first (rest x)))
@@ -14,6 +15,12 @@
   (if (= n 0)
     (first l)
     (nth (- n 1) (rest l))))
+
+; Get the size of a list
+(defun count (l)
+  (if (empty? l)
+    0
+    (+ 1 (count (rest l)))))
 
 ; Regular functional operators map, filter, reduces
 (defun map (f l)
@@ -92,5 +99,23 @@
         (if (empty? right)
           (take at l)
           (append (take at l) right))))))
+
+(defun starts-with (s with)
+  (if (empty? with)
+    true
+    (if (empty? s)
+      false
+      (if (= (first s) (first with))
+        (starts-with (rest s) (rest with))
+        false))))
+
+; String replace
+(defun replace (s from to)
+  (if (empty? s)
+    '()
+    (if (starts-with s from)
+      (append to (replace (drop (count from) s) from to))
+      (cons (first s) (replace (rest s) from to)))))
+
 
 (alias ~ /home/devin)

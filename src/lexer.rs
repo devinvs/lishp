@@ -11,8 +11,9 @@ pub enum Token {
 fn hex_to_c(a: char, b: char) -> char {
     let a = a.to_digit(16).unwrap();
     let b = b.to_digit(16).unwrap();
-    let c = (a << 8) | b;
-    char::from_u32(c).unwrap()
+    let c = (a << 4) | b;
+    let c = char::from_u32(c).unwrap();
+    c
 }
 
 pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
@@ -39,10 +40,12 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
                 push(&mut stack, &mut tokens, in_quote);
                 in_quote = !in_quote;
             }
-            c if in_quote => stack.push(c),
             '\\' => {
                 let next = s.next().unwrap();
                 match next {
+                    'n' => {
+                        stack.push('\n');
+                    }
                     'x' => {
                         let a = s.next().unwrap();
                         let b = s.next().unwrap();
@@ -51,6 +54,7 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
                     _ => stack.push(next)
                 }
             }
+            c if in_quote => stack.push(c),
             c if c.is_whitespace() => {
                 push(&mut stack, &mut tokens, in_quote);
             }
