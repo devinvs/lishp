@@ -1,9 +1,11 @@
+use std::collections::LinkedList as List;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     LParen,
     RParen,
     Quote,
-    Ident(String),
+    Ident(List<char>),
     EOF
 }
 
@@ -18,12 +20,12 @@ fn hex_to_c(a: char, b: char) -> char {
 
 pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
     let mut tokens = Vec::new();
-    let mut stack = String::with_capacity(10);
+    let mut stack = List::new();
 
     let mut in_comment = false;
     let mut in_quote = false;
 
-    let push = |s: &mut String, toks: &mut Vec<Token>, in_quote: bool| {
+    let push = |s: &mut List<char>, toks: &mut Vec<Token>, in_quote: bool| {
         if s.is_empty() && !in_quote { return; }
 
         toks.push(Token::Ident(s.clone()));
@@ -44,17 +46,17 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
                 let next = s.next().unwrap();
                 match next {
                     'n' => {
-                        stack.push('\n');
+                        stack.push_back('\n');
                     }
                     'x' => {
                         let a = s.next().unwrap();
                         let b = s.next().unwrap();
-                        stack.push(hex_to_c(a, b))
+                        stack.push_back(hex_to_c(a, b))
                     }
-                    _ => stack.push(next)
+                    _ => stack.push_back(next)
                 }
             }
-            c if in_quote => stack.push(c),
+            c if in_quote => stack.push_back(c),
             c if c.is_whitespace() => {
                 push(&mut stack, &mut tokens, in_quote);
             }
@@ -74,7 +76,7 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
                 push(&mut stack, &mut tokens, in_quote);
                 tokens.push(Token::RParen);
             }
-            _ => stack.push(c)
+            _ => stack.push_back(c)
         }
     }
     push(&mut stack, &mut tokens, in_quote);

@@ -11,7 +11,7 @@ impl SExpression {
         let mut iter = toks.into_iter().peekable();
 
         if let Some(Token::EOF) = iter.peek() {
-            Ok(Self::Atom("".to_string()))
+            Ok(Self::Atom(List::new()))
         } else {
             Self::parse_toks(&mut iter)
         }
@@ -47,7 +47,9 @@ impl SExpression {
 
                 Ok(Self::Call(es))
             }
-            Some(Token::Ident(i)) => Ok(Self::Atom(i)),
+            Some(Token::Ident(i)) => {
+                Ok(Self::Atom(i))
+            },
             a => Err(format!("Unexpected token: {:?}", a))
         }
     }

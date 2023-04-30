@@ -12,7 +12,7 @@ pub use std::collections::LinkedList as List;
 pub enum SExpression {
     Call(List<SExpression>),
     List(List<SExpression>),
-    Atom(String)
+    Atom(List<char>)
 }
 
 // some basic utility methods
@@ -27,18 +27,30 @@ impl SExpression {
         }
     }
 
-    pub fn ident(&self) -> &str {
+    pub fn ident(self) -> List<char> {
         match self {
-            SExpression::Atom(s) => s,
-            SExpression::List(l) => l.front().unwrap().ident(),
+            SExpression::Atom(chars) => chars,
+            SExpression::List(l) => {
+                let mut i = l.into_iter()
+                    .map(|e| e.ident());
+
+                if let Some(first) = i.next() {
+                    i.fold(first, |mut a, mut e| {
+                        a.append(&mut e);
+                        a
+                    })
+                } else {
+                    List::new()
+                }
+            }
             _ => panic!("Called ident on call expression")
         }
     }
 
-    pub fn replace(self, from: &str, to: SExpression) -> SExpression {
+    pub fn replace(self, from: &List<char>, to: SExpression) -> SExpression {
         match self {
             Self::Atom(s) => {
-                if s==from { to } else { Self::Atom(s) }
+                if s==*from { to } else { Self::Atom(s) }
             }
             Self::Call(es) => {
                 Self::Call(es.into_iter()
@@ -49,17 +61,27 @@ impl SExpression {
         }
     }
 
-    pub fn list(&self) -> Vec<String> {
-        let mut ls = Vec::new();
-
+    pub fn list(self) -> List<List<char>> {
         match self {
             Self::Call(es) | Self::List(es) => {
-                es.iter().for_each(|e| ls.push(e.ident().to_string()))
-            }
-            Self::Atom(s) => ls.push(s.clone())
-        }
+                let mut i = es.into_iter().map(|e| e.list());
 
-        ls
+                if let Some(first) = i.next() {
+
+                    i.fold(first, |mut a, mut e| {
+                        a.append(&mut e);
+                        a
+                    })
+                } else {
+                    List::new()
+                }
+            }
+            Self::Atom(s) => {
+                let mut l = List::new();
+                l.push_front(s);
+                l
+            }
+        }
     }
 }
 
@@ -108,14 +130,16 @@ impl std::fmt::Display for SExpression {
                 f.write_str(")")?;
             }
             Self::Atom(s) => {
+                let s: String = s.iter().collect();
+
                 if s.contains(" ") {
                     f.write_str("\"")?;
-                    f.write_str(s)?;
+                    f.write_str(&s)?;
                     f.write_str("\"")?;
                 } else if s.is_empty() {
                     f.write_str("\"\"")?;
                 } else {
-                    f.write_str(s)?
+                    f.write_str(&s)?
                 }
             }
         }

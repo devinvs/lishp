@@ -26,9 +26,9 @@ pub struct Interpreter {
     // lower level aliases for preprocessing the input text
     pub aliases: HashMap<String, String>,
     // User definitions, literally just use as tree substitutions
-    pub defs: HashMap<String, SExpression>,
+    pub defs: HashMap<List<char>, SExpression>,
     // User defined functions, have name, list of args, and then the substituted tree
-    pub funcs: HashMap<String, (Vec<String>, SExpression)>,
+    pub funcs: HashMap<List<char>, (Vec<List<char>>, SExpression)>,
 
     // last unique id of a given variable
     pub id: usize,
@@ -87,23 +87,24 @@ impl Interpreter {
     pub fn eval_expr(&mut self, e: SExpression, root: bool) -> Result<SExpression, String> {
         match e {
             SExpression::Call(mut es) => {
-                let func = es.pop_front().ok_or("Empty Call Expression".to_string())?;
+                let func = es.pop_front().ok_or("Empty Call Expression".to_string())?.ident();
+                let func_name: String = func.iter().collect();
                 let args = es;
 
                 // If func is a builtin method, run it and print result.
-                if let Some(f) = BUILTINS.get(func.ident()) {
+                if let Some(f) = BUILTINS.get(func_name.as_str()) {
                     return f(args, self);
                 }
 
                 // If func is in user defined functions then run the subs
-                if self.funcs.get(func.ident()).is_some() {
+                if self.funcs.get(&func).is_some() {
                     let mut fargs = List::new();
 
                     for arg in args.into_iter() {
                         fargs.push_back(self.eval_expr(arg, false)?);
                     }
 
-                    if let Some((vars, tree)) = self.funcs.get(func.ident()) {
+                    if let Some((vars, tree)) = self.funcs.get(&func) {
                         let tree = vars.iter()
                             .zip(fargs.iter())
                             .fold(tree.clone(), |t, (var, sub)| {
@@ -118,19 +119,19 @@ impl Interpreter {
                 let (fd_read, fd_write) = pipe().unwrap();
 
                 // Else search path for binary, fork, and exec it with args
-                let bin = self.search_path(func.ident());
+                let bin = self.search_path(&func_name);
                 if bin.is_none() {
-                    return Err(format!("command not found: {}", func))
+                    return Err(format!("command not found: {}", func_name))
                 }
 
                 let bin = bin.unwrap();
 
                 let mut fargs = vec![];
-                fargs.push(CString::new(func.ident()).unwrap());
+                fargs.push(CString::new(func_name).unwrap());
 
                 for arg in args {
                     fargs.push(CString::new(
-                        self.eval_expr(arg, false)?.ident()
+                        self.eval_expr(arg, false)?.ident().iter().collect::<String>()
                     ).unwrap())
                 }
                 let args = fargs;
@@ -158,7 +159,7 @@ impl Interpreter {
                             }
 
                             let lines = out.lines()
-                                .map(|s| SExpression::Atom(s.to_string()))
+                                .map(|s| SExpression::Atom(s.chars().collect()))
                                 .collect();
 
                             Ok(SExpression::List(lines))
@@ -171,7 +172,7 @@ impl Interpreter {
                                     }
                                 }
                             }
-                            Ok(SExpression::Atom("".into()))
+                            Ok(SExpression::Atom(List::new()))
                         }
 
                     }

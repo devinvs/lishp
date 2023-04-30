@@ -117,5 +117,4 @@
       (append to (replace (drop (count from) s) from to))
       (cons (first s) (replace (rest s) from to)))))
 
-
 (alias ~ /home/devin)

@@ -23,7 +23,7 @@ fn main() {
 fn run_command(it: &mut Interpreter, cmd: &str) {
     match it.eval(cmd) {
         Ok(e) => match e {
-            SExpression::Atom(s) if s=="" => println!(""),
+            SExpression::Atom(s) if s.is_empty() => println!(""),
             _ => println!("{e}")
         }
         Err(e) => eprintln!("Error: {e}")
@@ -62,9 +62,9 @@ fn run_interactive(mut it: Interpreter) {
 }
 
 fn get_prompt(it: &mut Interpreter) -> String {
-    if let Some(e) = it.defs.get("lishp_prompt") {
+    if let Some(e) = it.defs.get(&"lishp_prompt".chars().collect()) {
         if let Ok(s) = it.eval_expr(e.clone(), false) {
-            return s.ident().to_string();
+            return s.ident().iter().collect();
         }
     }
 

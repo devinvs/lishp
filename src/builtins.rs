@@ -11,26 +11,33 @@ type Func = fn(List<SExpression>, &mut Interpreter) -> Result<SExpression, Strin
 type BinNum = fn(f64, f64) -> f64;
 type BinCmp = fn(f64, f64) -> bool;
 
-fn to_f64(e: &SExpression) -> Result<f64, String> {
-    e.ident().parse::<f64>()
-        .map_err(|_| format!("{e} is not a number"))
+fn to_f64(e: SExpression) -> Result<f64, String> {
+    let name = e.ident().iter().collect::<String>();
+
+    name.parse::<f64>()
+        .map_err(|_| format!("{} is not a number", &name))
 }
 
 fn fold_nums(args: List<SExpression>, init: f64, f: BinNum, s: &mut Interpreter) -> Result<SExpression, String> {
     let mut accum = init;
 
     for arg in args {
-        let x = to_f64(&s.eval_expr(arg, false)?)?;
+        let x = to_f64(s.eval_expr(arg, false)?)?;
         accum = f(accum, x);
     }
 
-    Ok(SExpression::Atom(accum.to_string()))
+    let accum = accum.to_string().chars().collect();
+
+    Ok(SExpression::Atom(accum))
 }
 
 fn bin_num(x: SExpression, y: SExpression, f: BinNum, s: &mut Interpreter) -> Result<SExpression, String> {
-    Ok(SExpression::Atom(f(
-        to_f64(&s.eval_expr(x, false)?)?,
-        to_f64(&s.eval_expr(y, false)?)?).to_string()))
+    let n = f(
+        to_f64(s.eval_expr(x, false)?)?,
+        to_f64(s.eval_expr(y, false)?)?
+    );
+
+    Ok(SExpression::Atom(n.to_string().chars().collect()))
 }
 
 pub fn builtin_add(args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
@@ -74,18 +81,21 @@ pub fn builtin_pow(mut args: List<SExpression>, s: &mut Interpreter) -> Result<S
 }
 
 fn bin_cmp(x: SExpression, y: SExpression, f: BinCmp, s: &mut Interpreter) -> Result<SExpression, String> {
-    Ok(SExpression::Atom(f(
-            to_f64(&s.eval_expr(x, false)?)?,
-            to_f64(&s.eval_expr(y, false)?)?).to_string()))
+    let b = f(
+        to_f64(s.eval_expr(x, false)?)?,
+        to_f64(s.eval_expr(y, false)?)?
+    );
+
+    Ok(SExpression::Atom(b.to_string().chars().collect()))
 }
 
 pub fn builtin_not(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let Some(e) = args.pop_front() {
         match s.eval_expr(e, false)? {
             SExpression::Atom(s) => {
-                match s.as_str() {
-                    "true" => Ok(SExpression::Atom("false".to_string())),
-                    "false" => Ok(SExpression::Atom("true".to_string())),
+                match s.iter().collect::<String>().as_str() {
+                    "true" => Ok(SExpression::Atom("false".to_string().chars().collect())),
+                    "false" => Ok(SExpression::Atom("true".to_string().chars().collect())),
                     _ => Err("not expects a boolean argument".to_string())
                 }
             }
@@ -101,10 +111,10 @@ pub fn builtin_or(args: List<SExpression>, s: &mut Interpreter) -> Result<SExpre
 
     for arg in args {
         let x = s.eval_expr(arg, false)?;
-        accum = accum || x.ident() == "true";
+        accum = accum || x.ident().iter().collect::<String>() == "true";
     }
 
-    Ok(SExpression::Atom(accum.to_string()))
+    Ok(SExpression::Atom(accum.to_string().chars().collect()))
 }
 
 pub fn builtin_and(args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
@@ -112,10 +122,10 @@ pub fn builtin_and(args: List<SExpression>, s: &mut Interpreter) -> Result<SExpr
 
     for arg in args {
         let x = s.eval_expr(arg, false)?;
-        accum = accum && x.ident() == "true";
+        accum = accum && x.ident().iter().collect::<String>() == "true";
     }
 
-    Ok(SExpression::Atom(accum.to_string()))
+    Ok(SExpression::Atom(accum.to_string().chars().collect()))
 }
 
 pub fn builtin_lt(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
@@ -159,12 +169,12 @@ pub fn builtin_eq(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SE
         
         match (&x, &y) {
             (SExpression::Atom(s), SExpression::List(l)) | (SExpression::List(l), SExpression::Atom(s)) => {
-                if s=="" && l.is_empty() { return Ok(SExpression::Atom("true".to_string())) }
+                if s.is_empty() && l.is_empty() { return Ok(SExpression::Atom("true".to_string().chars().collect())) }
             }
             _ => {}
         }
 
-        Ok(SExpression::Atom((x==y).to_string()))
+        Ok(SExpression::Atom((x==y).to_string().chars().collect()))
 
     } else {
         Err("eq requires two arguments".to_string())
@@ -173,7 +183,7 @@ pub fn builtin_eq(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SE
 
 pub fn builtin_if(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let (Some(cond), Some(t), Some(f)) = (args.pop_front(), args.pop_front(), args.pop_front()) {
-        if s.eval_expr(cond, false)?.ident() == "true" {
+        if s.eval_expr(cond, false)?.ident().iter().collect::<String>() == "true" {
             s.eval_expr(t, false)
         } else {
             s.eval_expr(f, false)
@@ -193,9 +203,11 @@ pub fn builtin_first(mut args: List<SExpression>, s: &mut Interpreter) -> Result
                     Err("tried to call first on empty list".to_string())
                 }
             }
-            SExpression::Atom(s) => {
-                if let Some(c) = s.chars().next() {
-                    Ok(SExpression::Atom(c.to_string()))
+            SExpression::Atom(mut s) => {
+                if let Some(c) = s.pop_front() {
+                    let mut l = List::new();
+                    l.push_front(c);
+                    Ok(SExpression::Atom(l))
                 } else {
                     Err("tried to call first on empty string".to_string())
                 }
@@ -215,10 +227,9 @@ pub fn builtin_rest(mut args: List<SExpression>, s: &mut Interpreter) -> Result<
 
                 Ok(SExpression::List(es))
             }
-            SExpression::Atom(s) => {
-                let mut i = s.chars();
-                i.next();
-                Ok(SExpression::Atom(i.collect()))
+            SExpression::Atom(mut s) => {
+                s.pop_front();
+                Ok(SExpression::Atom(s))
             }
             _ => unreachable!()
         }
@@ -240,7 +251,7 @@ pub fn builtin_list(args: List<SExpression>, s: &mut Interpreter) -> Result<SExp
 pub fn builtin_def(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let (Some(SExpression::Atom(name)), Some(val)) = (args.pop_front(), args.pop_front()) {
         s.defs.insert(name.clone(), val);
-        Ok(SExpression::Atom(format!("defined {name}")))
+        Ok(SExpression::Atom(format!("defined {}", name.iter().collect::<String>()).chars().collect()))
     } else {
         Err("def requires two arguments".to_string())
     }
@@ -252,14 +263,15 @@ pub fn builtin_defun(mut args: List<SExpression>, s: &mut Interpreter) -> Result
 
         // rename variables to be unique...
         for var in vars.list() {
-            let new = format!("#{}#{}#", var, s.id);
+            let var_name = var.iter().collect::<String>();
+            let new = format!("#{}#{}#", var_name, s.id).chars().collect::<List<char>>();
             vs.push(new.clone());
             tree = tree.replace(&var, SExpression::Atom(new));
             s.id += 1;
         }
 
         s.funcs.insert(name.clone(), (vs, tree));
-        Ok(SExpression::Atom(format!("defined {name}")))
+        Ok(SExpression::Atom(format!("defined {}", name.iter().collect::<String>()).chars().collect()))
     } else {
         Err("defun requires three arguments".to_string())
     }
@@ -267,12 +279,14 @@ pub fn builtin_defun(mut args: List<SExpression>, s: &mut Interpreter) -> Result
 
 pub fn builtin_alias(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let Some(SExpression::Atom(from)) = args.pop_front() {
-        let to = args.iter().map(|e| e.ident().to_string()).collect::<Vec<_>>();
+        let to = args.into_iter().map(|e| e.ident().iter().collect()).collect::<Vec<String>>();
         let to = to.join(" ");
+
+        let from = from.iter().collect::<String>();
 
         s.aliases.insert(from.clone(), to.clone());
 
-        Ok(SExpression::Atom(format!("aliased {from} to {to}")))
+        Ok(SExpression::Atom(format!("aliased {from} to {to}").chars().collect()))
     } else {
         Err("alias requires two arguments".to_string())
     }
@@ -284,11 +298,11 @@ pub fn builtin_cons(mut args: List<SExpression>, s: &mut Interpreter) -> Result<
         let xs = s.eval_expr(xs, false)?;
 
         match (x, xs) {
-            (SExpression::Atom(c), SExpression::List(xs)) if c.chars().count() == 1 && xs.len() == 0 => {
+            (SExpression::Atom(c), SExpression::List(xs)) if c.len() == 1 && xs.len() == 0 => {
                 Ok(SExpression::Atom(c))
             }
-            (SExpression::Atom(mut c), SExpression::Atom(s)) if c.chars().count() == 1 => {
-                c.push_str(&s);
+            (SExpression::Atom(mut c), SExpression::Atom(mut s)) if c.len() == 1 => {
+                c.append(&mut s);
                 Ok(SExpression::Atom(c))
             }
             (x, SExpression::List(mut xs)) => {
@@ -307,14 +321,14 @@ pub fn builtin_cons(mut args: List<SExpression>, s: &mut Interpreter) -> Result<
 
 pub fn builtin_cd(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let Some(e) = args.pop_front() {
-        set_current_dir(s.eval_expr(e, false)?.ident())
+        set_current_dir(s.eval_expr(e, false)?.ident().iter().collect::<String>())
             .map_err(|e| format!("Failed to change directory: {e}"))?;
     } else {
         set_current_dir("/home/devin")
             .map_err(|e| format!("Failed to change directory: {e}"))?;
     }
 
-    Ok(SExpression::Atom("".to_string()))
+    Ok(SExpression::Atom(List::new()))
 }
 
 pub fn builtin_exit(_: List<SExpression>, _: &mut Interpreter) -> Result<SExpression, String> {
