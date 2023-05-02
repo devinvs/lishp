@@ -4,6 +4,7 @@ use lishp::completer::InputHelper;
 
 use rustyline::config::Builder;
 use rustyline::config::CompletionType;
+use rustyline::error::ReadlineError;
 
 fn main() {
     let mut it = Interpreter::load();
@@ -50,11 +51,14 @@ fn run_interactive(mut it: Interpreter) {
         match rl.readline(&get_prompt(&mut it)) {
             Ok(line) => {
                 // If line is empty ignore
-                if line.is_empty() { continue; }
+                if line.is_empty() { println!(""); continue; }
                 rl.add_history_entry(&line).unwrap();
                 run_command(&mut it, &line);
             }
-            Err(_) => break
+            Err(ReadlineError::Interrupted) => {
+                println!("")
+            }
+            Err(_) => break,
         }
     }
 
