@@ -2,6 +2,7 @@ use rustyline::completion::{Pair, Candidate, Completer};
 use rustyline::{Result, Context};
 
 use std::borrow::Cow::{self, Borrowed, Owned};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{self, Path};
 use crate::SExpression;
@@ -14,7 +15,7 @@ use rustyline::{Completer, Helper, Highlighter, Hinter, Validator};
 
 impl rustyline::validate::Validator for InputValidator {
     fn validate(&self, ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
-        match SExpression::parse(ctx.input()) {
+        match SExpression::parse(ctx.input(), &HashMap::new()) {
             Ok(_) => Ok(ValidationResult::Valid(None)),
             Err(_) => Ok(ValidationResult::Incomplete)
         }

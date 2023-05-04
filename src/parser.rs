@@ -1,13 +1,14 @@
 use std::fs::File;
 use std::io::Read;
 use std::collections::LinkedList as List;
+use std::collections::HashMap;
 
 use crate::SExpression;
 use crate::lexer::{lex, Token};
 
 impl SExpression {
-    pub fn parse(s: &str) -> Result<Self, String> {
-        let toks = lex(s.chars());
+    pub fn parse(s: &str, aliases: &HashMap<List<char>, List<List<char>>>) -> Result<Self, String> {
+        let toks = lex(s.chars(), aliases);
         let mut iter = toks.into_iter().peekable();
 
         if let Some(Token::EOF) = iter.peek() {
@@ -71,7 +72,7 @@ pub fn parse_file(s: &str) -> Vec<SExpression> {
 }
 
 pub fn parse_str(s: &str) -> Vec<SExpression> {
-    let mut tokens = lex(s.chars()).into_iter().peekable();
+    let mut tokens = lex(s.chars(), &HashMap::new()).into_iter().peekable();
     let mut exprs = vec![];
 
     while tokens.peek() != Some(&Token::EOF) {

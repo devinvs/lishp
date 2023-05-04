@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::env::set_current_dir;
+use std::env::{var, set_var};
 use std::collections::HashMap;
 use std::collections::LinkedList as List;
 use crate::SExpression;
@@ -279,14 +280,11 @@ pub fn builtin_defun(mut args: List<SExpression>, s: &mut Interpreter) -> Result
 
 pub fn builtin_alias(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
     if let Some(SExpression::Atom(from)) = args.pop_front() {
-        let to = args.into_iter().map(|e| e.ident().iter().collect()).collect::<Vec<String>>();
-        let to = to.join(" ");
-
-        let from = from.iter().collect::<String>();
+        let to = args.into_iter().map(|e| e.ident()).collect::<List<_>>();
 
         s.aliases.insert(from.clone(), to.clone());
 
-        Ok(SExpression::Atom(format!("aliased {from} to {to}").chars().collect()))
+        Ok(SExpression::Atom(format!("created alias").chars().collect()))
     } else {
         Err("alias requires two arguments".to_string())
     }
@@ -309,8 +307,7 @@ pub fn builtin_cons(mut args: List<SExpression>, s: &mut Interpreter) -> Result<
                 xs.push_front(s.eval_expr(x, false)?);
                 Ok(SExpression::List(xs))
             }
-            (x, xs) => {
-                eprintln!("{x} vs {xs}");
+            (_, _) => {
                 Err("cons second argument must be list-like".to_string())
             }
         }
@@ -348,6 +345,39 @@ pub fn builtin_let(mut args: List<SExpression>, s: &mut Interpreter) -> Result<S
     Err("let requires two arguments".to_string())
 }
 
+pub fn builtin_getenv(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
+    if let Some(a) = args.pop_front() {
+        let v: String = s.eval_expr(a, false)?
+            .ident()
+            .into_iter()
+            .collect();
+        let val: List<char> = var(&v)
+            .map_err(|_| "env var not found".to_string())?
+            .chars().collect();
+        Ok(SExpression::Atom(val))
+    } else {
+        Err("getenv requires one argument".to_string())
+    }
+}
+
+pub fn builtin_export(mut args: List<SExpression>, s: &mut Interpreter) -> Result<SExpression, String> {
+    if let (Some(a), Some(b)) = (args.pop_front(), args.pop_front()) {
+        let var: String = s.eval_expr(a, false)?
+            .ident()
+            .into_iter()
+            .collect();
+        let val: String = s.eval_expr(b, false)?
+            .ident()
+            .into_iter()
+            .collect();
+        set_var(&var, &val);
+
+        return Ok(SExpression::Atom(List::new()));
+    }
+
+    Err("export requires two arguments".to_string())
+}
+
 lazy_static! {
     pub static ref BUILTINS: HashMap<&'static str, Func> = {
         let mut m = HashMap::new();
@@ -378,6 +408,9 @@ lazy_static! {
         m.insert("def", builtin_def);
         m.insert("alias", builtin_alias);
         m.insert("let", builtin_let);
+
+        m.insert("export", builtin_export);
+        m.insert("getenv", builtin_getenv);
 
         m.insert("cd", builtin_cd);
         m.insert("exit", builtin_exit);

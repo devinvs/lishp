@@ -1,4 +1,5 @@
 use std::collections::LinkedList as List;
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -18,17 +19,24 @@ fn hex_to_c(a: char, b: char) -> char {
     c
 }
 
-pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
+pub fn lex(mut s: impl Iterator<Item = char>, aliases: &HashMap<List<char>, List<List<char>>>) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut stack = List::new();
 
     let mut in_comment = false;
     let mut in_quote = false;
 
-    let push = |s: &mut List<char>, toks: &mut Vec<Token>, in_quote: bool| {
+    let push = |s: &mut List<char>, toks: &mut Vec<Token>, in_quote: bool, aliases: &HashMap<List<char>, List<List<char>>>| {
         if s.is_empty() && !in_quote { return; }
 
-        toks.push(Token::Ident(s.clone()));
+        if let Some(ps) = aliases.get(&s) {
+            for s in ps {
+                toks.push(Token::Ident(s.clone()))
+            }
+        } else {
+            toks.push(Token::Ident(s.clone()))
+        }
+
         s.clear();
     };
 
@@ -39,7 +47,7 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
             }
             _ if in_comment => {}
             '\"' => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
                 in_quote = !in_quote;
             }
             '\\' => {
@@ -58,28 +66,28 @@ pub fn lex(mut s: impl Iterator<Item = char>) -> Vec<Token> {
             }
             c if in_quote => stack.push_back(c),
             c if c.is_whitespace() => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
             }
             ';' => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
                 in_comment = true;
             }
             '\'' => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
                 tokens.push(Token::Quote);
             }
             '(' => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
                 tokens.push(Token::LParen);
             }
             ')' => {
-                push(&mut stack, &mut tokens, in_quote);
+                push(&mut stack, &mut tokens, in_quote, aliases);
                 tokens.push(Token::RParen);
             }
             _ => stack.push_back(c)
         }
     }
-    push(&mut stack, &mut tokens, in_quote);
+    push(&mut stack, &mut tokens, in_quote, aliases);
 
     // In order to preserve somewhat normal behavior of the shell,
     // We automatically surround the input in a list if it is not alread a list

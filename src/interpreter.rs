@@ -24,7 +24,7 @@ use nix::libc as libc;
 
 pub struct Interpreter {
     // lower level aliases for preprocessing the input text
-    pub aliases: HashMap<String, String>,
+    pub aliases: HashMap<List<char>, List<List<char>>>,
     // User definitions, literally just use as tree substitutions
     pub defs: HashMap<List<char>, SExpression>,
     // User defined functions, have name, list of args, and then the substituted tree
@@ -32,21 +32,12 @@ pub struct Interpreter {
 
     // last unique id of a given variable
     pub id: usize,
-
-    // Cached system path
-    pub path: Vec<String>,
 }
 
 impl Interpreter {
     pub fn load() -> Self {
-        let path = var("PATH").expect("Failed to read PATH")
-            .split(":")
-            .map(|s| s.to_string())
-            .collect();
-
         let mut me = Self {
             id: 0,
-            path,
             aliases: HashMap::new(),
             defs: HashMap::new(),
             funcs: HashMap::new(),
@@ -65,21 +56,9 @@ impl Interpreter {
         me
     }
 
-    pub fn preprocess(&self, s: &str) -> String {
-        let mut s = s.to_string();
-
-        for (from, to) in self.aliases.iter() {
-            s = s.replace(from, to);
-        }
-
-        s
-    }
-
     pub fn eval(&mut self, cmd: &str) -> Result<SExpression, String> {
-        // Use aliases as low level text replacements
-        let cmd = self.preprocess(cmd);
         // Parse Expression
-        let expr = SExpression::parse(&cmd)?;
+        let expr = SExpression::parse(&cmd, &self.aliases)?;
         // Evaluate Expression
         self.eval_expr(expr, true)
     }
@@ -202,6 +181,11 @@ impl Interpreter {
     }
 
     pub fn search_path(&self, s: &str) -> Option<CString> {
+        let path: Vec<_> = var("PATH").expect("Failed to read PATH")
+            .split(":")
+            .map(|s| s.to_string())
+            .collect();
+
         // first try to find the file as absolute path
         if let Ok(p) = std::fs::canonicalize(s) {
             let p = Path::new(&p);
@@ -210,7 +194,7 @@ impl Interpreter {
             }
         }
 
-        for dir in self.path.iter() {
+        for dir in path.iter() {
             for entry in read_dir(dir).ok()? {
                 if let Ok(entry) = entry {
                     if entry.file_name() == s {
