@@ -4,6 +4,7 @@ use lishp::completer::InputHelper;
 
 use rustyline::config::Builder;
 use rustyline::config::CompletionType;
+use rustyline::config::EditMode;
 use rustyline::error::ReadlineError;
 
 fn main() {
@@ -39,6 +40,7 @@ fn run_interactive(mut it: Interpreter) {
     let config = Builder::default()
         .completion_type(CompletionType::List)
         .tab_stop(4)
+        .edit_mode(EditMode::Vi)
         .build();
 
     let mut rl = rustyline::Editor::with_config(config).unwrap();
