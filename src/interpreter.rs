@@ -1,26 +1,18 @@
-use std::env::var;
-use std::fs::read_dir;
-use std::ffi::CString;
 use std::collections::HashMap;
 use std::collections::LinkedList as List;
+use std::env::var;
+use std::ffi::CString;
+use std::fs::read_dir;
 use std::path::Path;
 
 use crate::parser::{parse_file, parse_str};
 
-use crate::SExpression;
 use crate::builtins::BUILTINS;
+use crate::SExpression;
 
-use nix::unistd::{
-    fork,
-    ForkResult,
-    execv,
-    pipe,
-    read,
-    close,
-    dup2
-};
+use nix::libc;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
-use nix::libc as libc;
+use nix::unistd::{close, dup2, execv, fork, pipe, read, ForkResult};
 
 pub struct Interpreter {
     // lower level aliases for preprocessing the input text
@@ -66,7 +58,10 @@ impl Interpreter {
     pub fn eval_expr(&mut self, e: SExpression, root: bool) -> Result<SExpression, String> {
         match e {
             SExpression::Call(mut es) => {
-                let func = es.pop_front().ok_or("Empty Call Expression".to_string())?.ident();
+                let func = es
+                    .pop_front()
+                    .ok_or("Empty Call Expression".to_string())?
+                    .ident();
                 let func_name: String = func.iter().collect();
                 let args = es;
 
@@ -84,11 +79,10 @@ impl Interpreter {
                     }
 
                     if let Some((vars, tree)) = self.funcs.get(&func) {
-                        let tree = vars.iter()
+                        let tree = vars
+                            .iter()
                             .zip(fargs.iter())
-                            .fold(tree.clone(), |t, (var, sub)| {
-                                t.replace(var, sub.clone())
-                            });
+                            .fold(tree.clone(), |t, (var, sub)| t.replace(var, sub.clone()));
                         return self.eval_expr(tree, false);
                     } else {
                         unreachable!()
@@ -100,7 +94,7 @@ impl Interpreter {
                 // Else search path for binary, fork, and exec it with args
                 let bin = self.search_path(&func_name);
                 if bin.is_none() {
-                    return Err(format!("command not found: {}", func_name))
+                    return Err(format!("command not found: {}", func_name));
                 }
 
                 let bin = bin.unwrap();
@@ -109,14 +103,20 @@ impl Interpreter {
                 fargs.push(CString::new(func_name).unwrap());
 
                 for arg in args {
-                    fargs.push(CString::new(
-                        self.eval_expr(arg, false)?.ident().iter().collect::<String>()
-                    ).unwrap())
+                    fargs.push(
+                        CString::new(
+                            self.eval_expr(arg, false)?
+                                .ident()
+                                .iter()
+                                .collect::<String>(),
+                        )
+                        .unwrap(),
+                    )
                 }
                 let args = fargs;
 
                 // Fork, Exec
-                match unsafe{fork()} {
+                match unsafe { fork() } {
                     Ok(ForkResult::Parent { child, .. }) => {
                         let mut out = String::new();
                         let mut buf = [0; 1024];
@@ -125,19 +125,24 @@ impl Interpreter {
 
                         if !root {
                             while let Ok(n) = read(fd_read, &mut buf) {
-                                if n == 0 { break; } // EOF
+                                if n == 0 {
+                                    break;
+                                } // EOF
                                 out.push_str(&String::from_utf8_lossy(&buf[0..n]));
                             }
 
                             loop {
                                 let status = waitpid(child, Some(WaitPidFlag::WUNTRACED)).unwrap();
                                 match status {
-                                    WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => break,
-                                    _ => continue
+                                    WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => {
+                                        break
+                                    }
+                                    _ => continue,
                                 }
                             }
 
-                            let lines = out.lines()
+                            let lines = out
+                                .lines()
                                 .map(|s| SExpression::Atom(s.chars().collect()))
                                 .collect();
 
@@ -146,14 +151,14 @@ impl Interpreter {
                             loop {
                                 if let Ok(status) = waitpid(child, Some(WaitPidFlag::WUNTRACED)) {
                                     match status {
-                                        WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => break,
-                                        _ => continue
+                                        WaitStatus::Exited(_, _)
+                                        | WaitStatus::Signaled(_, _, _) => break,
+                                        _ => continue,
                                     }
                                 }
                             }
                             Ok(SExpression::Atom(List::new()))
                         }
-
                     }
                     Ok(ForkResult::Child) => {
                         if !root {
@@ -165,7 +170,7 @@ impl Interpreter {
                         execv(&bin, &args).unwrap();
                         unsafe { libc::_exit(0) }
                     }
-                    _ => panic!("ah")
+                    _ => panic!("ah"),
                 }
             }
             SExpression::Atom(s) => {
@@ -177,11 +182,11 @@ impl Interpreter {
             }
             a => Ok(a),
         }
-
     }
 
     pub fn search_path(&self, s: &str) -> Option<CString> {
-        let path: Vec<_> = var("PATH").expect("Failed to read PATH")
+        let path: Vec<_> = var("PATH")
+            .expect("Failed to read PATH")
             .split(":")
             .map(|s| s.to_string())
             .collect();
@@ -195,6 +200,16 @@ impl Interpreter {
         }
 
         for dir in path.iter() {
+            if let Ok(entries) = read_dir(dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        if entry.file_name() == s {
+                            let p = entry.path();
+                            return Some(CString::new(p.to_str().unwrap()).unwrap());
+                        }
+                    }
+                }
+            }
             for entry in read_dir(dir).ok()? {
                 if let Ok(entry) = entry {
                     if entry.file_name() == s {
@@ -208,4 +223,3 @@ impl Interpreter {
         None
     }
 }
-
