@@ -73,12 +73,12 @@
           (+ 1 i))))))
 
 ; append
-(defun append (a b)
+(defun sappend (a b)
   (if (empty? a)
     (if (empty? b)
       '()
-      (cons (first b) (append a (rest b))))
-    (cons (first a) (append (rest a) b))))
+      (cons (first b) (sappend a (rest b))))
+    (cons (first a) (sappend (rest a) b))))
 
 (defun reverse (l)
   (reverse-h '() l))
@@ -98,7 +98,7 @@
       (let (right (split (drop (+ at 1) l) d))
         (if (empty? right)
           (take at l)
-          (append (take at l) right))))))
+          (sappend (take at l) right))))))
 
 (defun starts-with (s with)
   (if (empty? with)
@@ -114,7 +114,7 @@
   (if (empty? s)
     '()
     (if (starts-with s from)
-      (append to (replace (drop (count from) s) from to))
+      (sappend to (replace (drop (count from) s) from to))
       (cons (first s) (replace (rest s) from to)))))
 
 (alias ~ /home/devin)
