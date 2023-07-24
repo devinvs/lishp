@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { version="11", features=["derive"] }
+crossterm = "0.23"
 nix = { version="0.26", features=["process"] }
 lazy_static = "1.4"
 ctrlc = "3"

@@ -1,11 +1,6 @@
+use lishp::Input;
 use lishp::Interpreter;
 use lishp::SExpression;
-use lishp::completer::InputHelper;
-
-use rustyline::config::Builder;
-use rustyline::config::CompletionType;
-use rustyline::config::EditMode;
-use rustyline::error::ReadlineError;
 
 fn main() {
     let mut it = Interpreter::load();
@@ -18,7 +13,7 @@ fn main() {
             let cmd = cmd.join(" ");
             run_command(&mut it, &cmd);
         }
-        _ => run_interactive(it)
+        _ => run_interactive(it),
     }
 }
 
@@ -26,9 +21,9 @@ fn run_command(it: &mut Interpreter, cmd: &str) {
     match it.eval(cmd) {
         Ok(e) => match e {
             SExpression::Atom(s) if s.is_empty() => println!(""),
-            _ => println!("{e}")
-        }
-        Err(e) => eprintln!("Error: {e}")
+            _ => println!("{e}"),
+        },
+        Err(e) => eprintln!("Error: {e}"),
     }
 }
 
@@ -36,35 +31,17 @@ fn run_interactive(mut it: Interpreter) {
     // Ignore ctrl-c
     ctrlc::set_handler(move || {}).unwrap();
 
-    // Setup readline completion and history
-    let config = Builder::default()
-        .completion_type(CompletionType::List)
-        .tab_stop(4)
-        .edit_mode(EditMode::Vi)
-        .build();
-
-    let mut rl = rustyline::Editor::with_config(config).unwrap();
-    let h = InputHelper::default();
-
-    rl.set_helper(Some(h));
-    rl.load_history("/home/devin/.lishp_history").ok();    // load history if it exists
+    let prompt = get_prompt(&mut it);
+    let input = Input::new();
 
     loop {
-        match rl.readline(&get_prompt(&mut it)) {
-            Ok(line) => {
-                // If line is empty ignore
-                if line.is_empty() { println!(""); continue; }
-                rl.add_history_entry(&line).unwrap();
-                run_command(&mut it, &line);
+        match input.readline(&prompt) {
+            Ok(s) => {
+                run_command(&mut it, &s);
             }
-            Err(ReadlineError::Interrupted) => {
-                println!("")
-            }
-            Err(_) => break,
+            _ => {}
         }
     }
-
-    rl.save_history("/home/devin/.lishp_history").unwrap();
 }
 
 fn get_prompt(it: &mut Interpreter) -> String {
@@ -76,4 +53,3 @@ fn get_prompt(it: &mut Interpreter) -> String {
 
     "> ".to_string()
 }
-

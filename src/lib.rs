@@ -1,9 +1,10 @@
+pub mod builtins;
+pub mod input;
+pub mod interpreter;
 pub mod lexer;
 pub mod parser;
-pub mod builtins;
-pub mod interpreter;
-pub mod completer;
 
+pub use input::Input;
 pub use interpreter::Interpreter;
 
 pub use std::collections::LinkedList as List;
@@ -12,7 +13,7 @@ pub use std::collections::LinkedList as List;
 pub enum SExpression {
     Call(List<SExpression>),
     List(List<SExpression>),
-    Atom(List<char>)
+    Atom(List<char>),
 }
 
 // some basic utility methods
@@ -20,10 +21,8 @@ impl SExpression {
     pub fn len(&self) -> usize {
         match self {
             Self::Atom(s) => s.len(),
-            Self::List(es) => {
-                es.iter().map(|e| e.len()).fold(0, |a, b| a+b)
-            }
-            Self::Call(_) => panic!("Called len on call expression")
+            Self::List(es) => es.iter().map(|e| e.len()).fold(0, |a, b| a + b),
+            Self::Call(_) => panic!("Called len on call expression"),
         }
     }
 
@@ -31,8 +30,7 @@ impl SExpression {
         match self {
             SExpression::Atom(chars) => chars,
             SExpression::List(l) => {
-                let mut i = l.into_iter()
-                    .map(|e| e.ident());
+                let mut i = l.into_iter().map(|e| e.ident());
 
                 if let Some(first) = i.next() {
                     i.fold(first, |mut a, mut e| {
@@ -43,21 +41,25 @@ impl SExpression {
                     List::new()
                 }
             }
-            _ => panic!("Called ident on call expression")
+            _ => panic!("Called ident on call expression"),
         }
     }
 
     pub fn replace(self, from: &List<char>, to: SExpression) -> SExpression {
         match self {
             Self::Atom(s) => {
-                if s==*from { to } else { Self::Atom(s) }
+                if s == *from {
+                    to
+                } else {
+                    Self::Atom(s)
+                }
             }
-            Self::Call(es) => {
-                Self::Call(es.into_iter()
-                           .map(|e| e.replace(from, to.clone()))
-                           .collect())
-            }
-            a => a
+            Self::Call(es) => Self::Call(
+                es.into_iter()
+                    .map(|e| e.replace(from, to.clone()))
+                    .collect(),
+            ),
+            a => a,
         }
     }
 
@@ -67,7 +69,6 @@ impl SExpression {
                 let mut i = es.into_iter().map(|e| e.list());
 
                 if let Some(first) = i.next() {
-
                     i.fold(first, |mut a, mut e| {
                         a.append(&mut e);
                         a
@@ -114,7 +115,6 @@ impl std::fmt::Display for SExpression {
                 }
 
                 f.write_str(")")?;
-
             }
             Self::Call(es) => {
                 f.write_str("(")?;
