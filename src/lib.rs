@@ -1,4 +1,5 @@
 pub mod builtins;
+pub mod complete;
 pub mod input;
 pub mod interpreter;
 pub mod lexer;

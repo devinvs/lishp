@@ -31,10 +31,10 @@ fn run_interactive(mut it: Interpreter) {
     // Ignore ctrl-c
     ctrlc::set_handler(move || {}).unwrap();
 
-    let prompt = get_prompt(&mut it);
     let input = Input::new();
 
     loop {
+        let prompt = get_prompt(&mut it);
         match input.readline(&prompt) {
             Ok(s) => {
                 run_command(&mut it, &s);

@@ -9,6 +9,8 @@ use crossterm::{execute, QueueableCommand};
 
 use crossterm::style::Print;
 
+use crate::complete::{complete, curr_word};
+
 pub struct Input {}
 
 impl Input {
@@ -17,6 +19,15 @@ impl Input {
     }
 
     pub fn readline(&self, prompt: &str) -> Result<String, String> {
+        self.readline_buf(prompt, "()".to_string(), 1)
+    }
+
+    pub fn readline_buf(
+        &self,
+        prompt: &str,
+        mut buf: String,
+        mut cursor: u16,
+    ) -> Result<String, String> {
         let mut stdout = stdout();
 
         write!(stdout, "{}", prompt).unwrap();
@@ -24,11 +35,7 @@ impl Input {
 
         let (start_col, start_row) = position().unwrap();
 
-        let mut cursor = 1;
-
         enable_raw_mode().unwrap();
-        let mut buf = "()".to_string();
-
         // In a loop, get a key, process it, and then output the new buffer
         loop {
             stdout
@@ -60,40 +67,89 @@ impl Input {
 
             // Read and process the next key
             match read().unwrap() {
-                Event::Key(KeyEvent { code, modifiers }) => match code {
+                Event::Key(KeyEvent { code, modifiers }) => match (code, modifiers) {
+                    // autocomplete
+                    (KeyCode::Tab, _) => {
+                        let cs = complete(&buf, cursor as usize);
+
+                        if cs.len() == 1 {
+                            let (start, end) = curr_word(&buf, cursor as usize);
+
+                            buf = format!(
+                                "{}{}{}",
+                                buf.chars().take(start).collect::<String>(),
+                                cs[0],
+                                buf.chars().skip(end).collect::<String>()
+                            );
+                            cursor = (start + cs[0].len()) as u16;
+                        } else if cs.len() > 1 && cs.len() < 25 {
+                            disable_raw_mode().unwrap();
+                            write!(stdout, "\n").unwrap();
+                            println!(
+                                "{}",
+                                cs.into_iter()
+                                    .map(|s| {
+                                        if s.ends_with("/") {
+                                            let (a, _) = s.rsplit_once("/").unwrap();
+                                            if let Some((_, a)) = a.rsplit_once("/") {
+                                                format!("{a}/")
+                                            } else {
+                                                format!("{a}/")
+                                            }
+                                        } else if let Some((_, a)) = s.rsplit_once("/") {
+                                            a.to_string()
+                                        } else {
+                                            s
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            );
+                            return self.readline_buf(prompt, buf, cursor);
+                        }
+                    }
                     // Control characters
-                    KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => {
+                    (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                         disable_raw_mode().unwrap();
                         write!(stdout, "\n").unwrap();
                         return Err("".to_string());
                     }
                     // Navigation
-                    KeyCode::Left => cursor = 0.max(cursor - 1),
-                    KeyCode::Right => cursor = (buf.len() as u16).min(cursor + 1),
-
+                    (KeyCode::Left, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
+                        cursor = 0.max(cursor - 1)
+                    }
+                    (KeyCode::Right, _) | (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
+                        cursor = (buf.len() as u16).min(cursor + 1)
+                    }
+                    (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
+                        cursor = 0;
+                    }
+                    (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
+                        cursor = buf.len() as u16;
+                    }
                     // Editing
-                    KeyCode::Backspace => {
+                    (KeyCode::Backspace, _) => {
                         if buf.len() > 0 && cursor > 0 {
                             buf.remove(cursor as usize - 1);
                             cursor -= 1;
                         }
                     }
-                    KeyCode::Char('(') => {
+                    (KeyCode::Char('('), _) => {
                         buf.insert_str(cursor as usize, "()");
                         cursor += 1;
                     }
-                    KeyCode::Char(')') => {
+                    (KeyCode::Char(')'), _) => {
                         if buf.chars().nth(cursor as usize).unwrap_or(' ') != ')' {
                             buf.insert(cursor as usize, ')');
                         }
 
                         cursor += 1;
                     }
-                    KeyCode::Char(c) => {
+                    (KeyCode::Char(c), _) => {
                         buf.insert(cursor as usize, c);
                         cursor += 1;
                     }
-                    KeyCode::Enter => {
+                    (KeyCode::Enter, _) => {
                         disable_raw_mode().unwrap();
                         write!(stdout, "\n").unwrap();
                         break;
@@ -128,12 +184,12 @@ fn highlight_parens(buf: &str, cursor: usize) -> Vec<usize> {
 
     if let Some(i) = stack.pop_front() {
         hls.push(i);
-    }
 
-    for (i, c) in buf.chars().enumerate().skip(cursor as usize) {
-        if c == ')' {
-            hls.push(i);
-            break;
+        for (i, c) in buf.chars().enumerate().skip(cursor as usize) {
+            if c == ')' {
+                hls.push(i);
+                break;
+            }
         }
     }
 
