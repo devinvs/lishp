@@ -135,7 +135,18 @@ impl Input {
                         }
                     }
                     (KeyCode::Char('('), _) => {
-                        buf.insert_str(cursor as usize, "()");
+                        // Count number of ( and )
+                        // if ( < ) insert only (
+                        // else insert ()
+                        let l_count = buf.chars().filter(|c| *c == '(').count();
+                        let r_count = buf.chars().filter(|c| *c == ')').count();
+
+                        if l_count < r_count {
+                            buf.insert(cursor as usize, '(');
+                        } else {
+                            buf.insert_str(cursor as usize, "()");
+                        }
+
                         cursor += 1;
                     }
                     (KeyCode::Char(')'), _) => {

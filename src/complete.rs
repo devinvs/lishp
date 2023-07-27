@@ -54,5 +54,12 @@ fn complete_files(prefix: &str) -> Vec<String> {
         })
         .filter(|s| s.starts_with(prefix))
         .map(|s| Path::new(base).join(s).to_str().unwrap().to_string())
+        .map(|s| {
+            if s.starts_with("./") {
+                s.split_once("./").unwrap().1.to_string()
+            } else {
+                s
+            }
+        })
         .collect()
 }

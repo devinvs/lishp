@@ -12,8 +12,3 @@
 - Better autocomplete
   + Try to hook into zsh/bash completions packages so that we can autocomplete
     anything... Also maybe try to autocomplete arguments in path
-
-- Better input
-  + auto highlighting of parentheses
-  + maybe move away from readline...
-     + completion is just annoying to implement, at least with rustyline
