@@ -5,6 +5,7 @@ pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 
+pub use input::History;
 pub use input::Input;
 pub use interpreter::Interpreter;
 

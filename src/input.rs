@@ -11,6 +11,12 @@ use crossterm::style::Print;
 
 use crate::complete::{complete, curr_word};
 
+#[derive(Debug, Clone)]
+pub enum History {
+    Nil,
+    Cons(String, Box<History>),
+}
+
 pub struct Input {}
 
 impl Input {
@@ -18,13 +24,15 @@ impl Input {
         Input {}
     }
 
-    pub fn readline(&self, prompt: &str) -> Result<String, String> {
-        self.readline_buf(prompt, "()".to_string(), 1)
+    pub fn readline(&self, prompt: &str, history: History) -> Result<String, String> {
+        self.readline_buf(prompt, history, History::Nil, "()".to_string(), 1)
     }
 
     pub fn readline_buf(
         &self,
         prompt: &str,
+        mut history: History,
+        mut history_prev: History,
         mut buf: String,
         mut cursor: u16,
     ) -> Result<String, String> {
@@ -105,7 +113,7 @@ impl Input {
                                     .collect::<Vec<_>>()
                                     .join(" ")
                             );
-                            return self.readline_buf(prompt, buf, cursor);
+                            return self.readline_buf(prompt, history, history_prev, buf, cursor);
                         }
                     }
                     // Control characters
@@ -127,6 +135,15 @@ impl Input {
                     (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
                         cursor = buf.len() as u16;
                     }
+                    // history
+                    (KeyCode::Up, _) => match history.clone() {
+                        History::Nil => {}
+                        History::Cons(val, rest) => {
+                            buf = val.clone();
+                            history = *rest;
+                            history_prev = History::Cons(val, Box::new(history_prev));
+                        }
+                    },
                     // Editing
                     (KeyCode::Backspace, _) => {
                         if buf.len() > 0 && cursor > 0 {

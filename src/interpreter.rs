@@ -24,6 +24,9 @@ pub struct Interpreter {
 
     // last unique id of a given variable
     pub id: usize,
+
+    // last return code
+    pub last_ret_code: i32,
 }
 
 impl Interpreter {
@@ -33,6 +36,7 @@ impl Interpreter {
             aliases: HashMap::new(),
             defs: HashMap::new(),
             funcs: HashMap::new(),
+            last_ret_code: 0,
         };
 
         // Load prelude
@@ -134,9 +138,10 @@ impl Interpreter {
                             loop {
                                 let status = waitpid(child, Some(WaitPidFlag::WUNTRACED)).unwrap();
                                 match status {
-                                    WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _) => {
-                                        break
+                                    WaitStatus::Exited(_, _) => {
+                                        break;
                                     }
+                                    WaitStatus::Signaled(_, _, _) => break,
                                     _ => continue,
                                 }
                             }
@@ -151,8 +156,11 @@ impl Interpreter {
                             loop {
                                 if let Ok(status) = waitpid(child, Some(WaitPidFlag::WUNTRACED)) {
                                     match status {
-                                        WaitStatus::Exited(_, _)
-                                        | WaitStatus::Signaled(_, _, _) => break,
+                                        WaitStatus::Exited(_, exit) => {
+                                            self.last_ret_code = exit;
+                                            break;
+                                        }
+                                        WaitStatus::Signaled(_, _, _) => break,
                                         _ => continue,
                                     }
                                 }
@@ -174,7 +182,11 @@ impl Interpreter {
                 }
             }
             SExpression::Atom(s) => {
-                if let Some(expr) = self.defs.get(&s) {
+                if s == "$?".chars().collect() {
+                    Ok(SExpression::Atom(
+                        self.last_ret_code.to_string().chars().collect(),
+                    ))
+                } else if let Some(expr) = self.defs.get(&s) {
                     Ok(expr.clone())
                 } else {
                     Ok(SExpression::Atom(s))

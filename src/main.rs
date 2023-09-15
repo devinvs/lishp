@@ -1,3 +1,4 @@
+use lishp::History;
 use lishp::Input;
 use lishp::Interpreter;
 use lishp::SExpression;
@@ -32,11 +33,22 @@ fn run_interactive(mut it: Interpreter) {
     ctrlc::set_handler(move || {}).unwrap();
 
     let input = Input::new();
+    let mut history = History::Nil;
 
     loop {
         let prompt = get_prompt(&mut it);
-        match input.readline(&prompt) {
+        match input.readline(&prompt, history.clone()) {
             Ok(s) => {
+                match history.clone() {
+                    History::Nil => {
+                        history = History::Cons(s.clone(), Box::new(history));
+                    }
+                    History::Cons(a, _) if a != s => {
+                        history = History::Cons(s.clone(), Box::new(history));
+                    }
+                    _ => {}
+                }
+
                 run_command(&mut it, &s);
             }
             _ => {}
