@@ -80,17 +80,36 @@ impl Input {
                     (KeyCode::Tab, _) => {
                         let cs = complete(&buf, cursor as usize);
 
-                        if cs.len() == 1 {
+                        if cs.len() == 0 {
+                            continue;
+                        }
+
+                        let prefix = cs[0].clone();
+                        let mut plen = prefix.len();
+
+                        for s in cs.iter() {
+                            plen = prefix
+                                .chars()
+                                .zip(s.chars())
+                                .take_while(|(a, b)| a == b)
+                                .count()
+                                .min(plen)
+                        }
+
+                        if plen > 0 {
+                            let c: String = prefix.chars().take(plen).collect();
                             let (start, end) = curr_word(&buf, cursor as usize);
 
                             buf = format!(
                                 "{}{}{}",
                                 buf.chars().take(start).collect::<String>(),
-                                cs[0],
+                                c,
                                 buf.chars().skip(end).collect::<String>()
                             );
-                            cursor = (start + cs[0].len()) as u16;
-                        } else if cs.len() > 1 && cs.len() < 25 {
+                            cursor = (start + c.len()) as u16;
+                        }
+
+                        if cs.len() > 1 && cs.len() < 25 {
                             disable_raw_mode().unwrap();
                             write!(stdout, "\n").unwrap();
                             println!(
