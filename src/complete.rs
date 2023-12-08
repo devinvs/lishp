@@ -61,5 +61,12 @@ fn complete_files(prefix: &str) -> Vec<String> {
                 s
             }
         })
+        .map(|s| {
+            if s.chars().any(|c| c.is_whitespace()) {
+                format!("\"{}\"", s)
+            } else {
+                s
+            }
+        })
         .collect()
 }
