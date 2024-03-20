@@ -175,7 +175,9 @@ impl Interpreter {
                         close(fd_write).unwrap();
                         close(fd_read).unwrap();
 
-                        execv(&bin, &args).unwrap();
+                        if let Err(e) = execv(&bin, &args) {
+                            eprintln!("error: {e}");
+                        }
                         unsafe { libc::_exit(0) }
                     }
                     _ => panic!("ah"),
