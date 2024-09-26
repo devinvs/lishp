@@ -161,6 +161,12 @@ impl Input {
                             buf = val.clone();
                             history = *rest;
                             history_prev = History::Cons(val, Box::new(history_prev));
+
+                            if buf.starts_with("(") {
+                                cursor = buf.len() as u16 - 1;
+                            } else {
+                                cursor = buf.len() as u16;
+                            }
                         }
                     },
                     // Editing
