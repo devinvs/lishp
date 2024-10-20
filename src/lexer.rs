@@ -55,9 +55,7 @@ pub fn lex(
     };
 
     while let Some(c) = s.next() {
-        if c != '(' {
-            last_is_paren = false;
-        }
+        if c != '(' {}
 
         match c {
             '\n' if in_comment => {
@@ -66,6 +64,7 @@ pub fn lex(
             _ if in_comment => {}
             '\"' => {
                 push(&mut stack, &mut tokens, in_quote, last_is_paren, aliases);
+                last_is_paren = false;
                 in_quote = !in_quote;
             }
             '\\' => {
@@ -85,13 +84,16 @@ pub fn lex(
             c if in_quote => stack.push_back(c),
             c if c.is_whitespace() => {
                 push(&mut stack, &mut tokens, in_quote, last_is_paren, aliases);
+                last_is_paren = false;
             }
             ';' => {
                 push(&mut stack, &mut tokens, in_quote, last_is_paren, aliases);
+                last_is_paren = false;
                 in_comment = true;
             }
             '\'' => {
                 push(&mut stack, &mut tokens, in_quote, last_is_paren, aliases);
+                last_is_paren = false;
                 tokens.push(Token::Quote);
             }
             '(' => {
@@ -101,6 +103,7 @@ pub fn lex(
             }
             ')' => {
                 push(&mut stack, &mut tokens, in_quote, last_is_paren, aliases);
+                last_is_paren = false;
                 tokens.push(Token::RParen);
             }
             _ => stack.push_back(c),
